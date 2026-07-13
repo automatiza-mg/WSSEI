@@ -1,0 +1,17 @@
+# Binários e artefatos de build
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Cobertura de testes
+*.out
+coverage.*
+
+# IDEs
+.idea/
+.vscode/
+
+# SO
+.DS_Store
+Thumbs.db

@@ -1,23 +1,45 @@
 package wssei
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 )
 
-// ListarUsuarios retorna a lista de Usuários
-func (c *Client) ListarUsuarios(
-	ctx context.Context,
-	limit int,
-	start int,
-	unidade int,
-) (*Usuarios, int, error) {
-	url := fmt.Sprintf(
-		"%s/usuario/listar",
-		c.endpoint,
-	)
+// ListarUsuariosParams seleciona a query do ListasUsuarios.
+type ListarUsuariosParams struct {
+	Limit   int
+	Start   int
+	Unidade int
+}
+
+// Converte os parâmetros em [url.Values], omitindo os campos zerados.
+func (p ListarUsuariosParams) values() url.Values {
+	q := make(url.Values)
+	if p.Limit != 0 {
+		q.Set("limit", strconv.Itoa(p.Limit))
+	}
+	if p.Start != 0 {
+		q.Set("start", strconv.Itoa(p.Start))
+	}
+	if p.Unidade != 0 {
+		q.Set("unidade", strconv.Itoa(p.Unidade))
+	}
+	return q
+}
+
+// ListarUsuarios retorna a lista de Usuários.
+func (c *Client) ListarUsuarios(ctx context.Context, params ListarUsuariosParams) ([]Usuarios, int, error) {
+	url := fmt.Sprintf("%s/usuario/listar", c.endpoint)
+	if q := params.values().Encode(); q != "" {
+		url += "?" + q
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -30,7 +52,7 @@ func (c *Client) ListarUsuarios(
 	}
 	defer resp.Body.Close()
 
-	var result Envelope[Usuarios]
+	var result Envelope[[]Usuarios]
 
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
@@ -46,15 +68,172 @@ func (c *Client) ListarUsuarios(
 		return nil, 0, fmt.Errorf("total invalido")
 	}
 
-	return &result.Data, total, nil
+	return result.Data, total, nil
 
 }
 
-// Usuarios tipo utilizado na funcao "ListarUsuarios"
+// Usuarios tipo utilizado na funcao "ListarUsuarios".
 type Usuarios struct {
 	IDUsuario string `json:"id_usuario"`
 	Sigla     string `json:"sigla"`
 	Nome      string `json:"nome"`
 	IDContato string `json:"id_contato"`
 	Total     string `json:"total"`
+}
+
+// ListarUsuariosParams seleciona a query do ListasUsuarios.
+type PesquisarUsuariosParams struct {
+	// PalavraChave é obrigatório
+	palavraChave string
+	orgao        int
+}
+
+// Converte os parâmetros em [url.Values], omitindo os campos zerados.
+func (p PesquisarUsuariosParams) values() url.Values {
+	q := make(url.Values)
+	if p.palavraChave != "" {
+		q.Set("limit", p.palavraChave)
+	}
+	if p.orgao != 0 {
+		q.Set("start", strconv.Itoa(p.orgao))
+	}
+	return q
+}
+
+// PesquiarUsuarios retorna a pesquisa de Usuários.
+func (c *Client) PesquiarUsuarios(ctx context.Context, params PesquisarUsuariosParams) (*UsuariosPesquisa, error) {
+	if params.palavraChave == "" {
+		return nil, fmt.Errorf("palavraChave required")
+	}
+	url := fmt.Sprintf("%s/usuario/pesquisar", c.endpoint)
+	if q := params.values().Encode(); q != "" {
+		url += "?" + q
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("erro request: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("erro response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[UsuariosPesquisa]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, fmt.Errorf("erro json decoder: %w", err)
+	}
+
+	if result.Sucesso != true {
+		return nil, fmt.Errorf("erro pesquisar ususarios : %s", result.Mensagem)
+	}
+
+	return &result.Data, nil
+
+}
+
+// UsuariosPesquisa tipo utilizado na funcao "PesquiarUsuarios".
+type UsuariosPesquisa struct {
+	IDContato string `json:"id_contato"`
+	IDUsuario string `json:"id_usuario"`
+	Sigla     string `json:"sigla"`
+	Nome      string `json:"nome"`
+}
+
+// RetornarUnidadesUsuarios retorna as unidades de um Usuário.
+func (c *Client) RetornarUnidadesUsuarios(ctx context.Context, usuario int) ([]UnidadesUsuarios, error) {
+	if usuario == 0 {
+		return nil, fmt.Errorf("usuario required")
+	}
+	url := fmt.Sprintf("%s/usuario/unidades", c.endpoint)
+	query := strconv.Itoa(usuario)
+	url += "?" + query
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("erro request: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("erro response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[[]UnidadesUsuarios]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, fmt.Errorf("erro json decoder: %w", err)
+	}
+
+	if result.Sucesso != true {
+		return nil, fmt.Errorf("erro listar ususarios : %s", result.Mensagem)
+	}
+
+	return result.Data, nil
+
+}
+
+// UnidadesUsuarios tipo utilizado na funcao RetornarUnidadesUsuarios.
+type UnidadesUsuarios struct {
+	ID    string `json:"id"`
+	Sigla string `json:"sigla"`
+	Nome  string `json:"nome"`
+}
+
+// UnidadeID tipo utilizado na funcao AlterarUnidadeUsuario.
+type UnidadeID struct {
+	Unidade int `json:"unidade"`
+}
+
+// AlterarUnidadeUsuario altera a unidade atual do usuario.
+func (c *Client) AlterarUnidadeUsuario(ctx context.Context, unidade UnidadeID) (*Envelope[struct{}], error) {
+	if unidade.Unidade <= 0 {
+		return nil, fmt.Errorf("invalid unidade: %d", unidade.Unidade)
+	}
+
+	url := fmt.Sprintf("%s/usuario/alterar/unidade", c.endpoint)
+
+	bodyBytes, err := json.Marshal(unidade)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read body error: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var env Envelope[struct{}]
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("unmarshal error: %w", err)
+	}
+
+	if !env.Sucesso {
+		return nil, fmt.Errorf("alteracao failed: %s", env.Mensagem)
+	}
+
+	return &env, nil
+
 }

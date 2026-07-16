@@ -30,7 +30,7 @@ type ProcessoAtributos struct {
 	UsuarioAtribuido Object[ProcessoUsuarioAtribuido] `json:"usuarioAtribuido"`
 	Unidade          Object[ProcessoUnidade]          `json:"unidade"`
 	Ciencias         Slice[ProcessoCiencia]           `json:"ciencias"`
-	Marcador         Object[ProcessoMarcador]         `json:"marcador"`
+	Marcadores       Slice[ProcessoMarcador]          `json:"marcador"`
 	DadosAbertura    Object[ProcessoDadosAbertura]    `json:"dadosAbertura"`
 	Anotacoes        Slice[ProcessoAnotacao]          `json:"anotacoes"`
 	Status           ProcessoStatusFlags              `json:"status"`

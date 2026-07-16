@@ -1,15 +1,18 @@
 package wssei
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
-// ListarUsuariosParams seleciona a query do ListasUsuarios
+// ListarUsuariosParams seleciona a query do ListasUsuarios.
 type ListarUsuariosParams struct {
 	Limit   int
 	Start   int
@@ -146,7 +149,7 @@ func (c *Client) RetornarUnidadesUsuarios(ctx context.Context, usuario int) ([]U
 	if usuario == 0 {
 		return nil, fmt.Errorf("usuario required")
 	}
-	url := fmt.Sprintf("%s/usuario/listar", c.endpoint)
+	url := fmt.Sprintf("%s/usuario/unidades", c.endpoint)
 	query := strconv.Itoa(usuario)
 	url += "?" + query
 
@@ -181,4 +184,56 @@ type UnidadesUsuarios struct {
 	ID    string `json:"id"`
 	Sigla string `json:"sigla"`
 	Nome  string `json:"nome"`
+}
+
+// UnidadeID tipo utilizado na funcao AlterarUnidadeUsuario.
+type UnidadeID struct {
+	Unidade int `json:"unidade"`
+}
+
+// AlterarUnidadeUsuario altera a unidade atual do usuario.
+func (c *Client) AlterarUnidadeUsuario(ctx context.Context, unidade UnidadeID) (*Envelope[struct{}], error) {
+	if unidade.Unidade <= 0 {
+		return nil, fmt.Errorf("invalid unidade: %d", unidade.Unidade)
+	}
+
+	url := fmt.Sprintf("%s/usuario/alterar/unidade", c.endpoint)
+
+	bodyBytes, err := json.Marshal(unidade)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read body error: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var env Envelope[struct{}]
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("unmarshal error: %w", err)
+	}
+
+	if !env.Sucesso {
+		return nil, fmt.Errorf("alteracao failed: %s", env.Mensagem)
+	}
+
+	return &env, nil
+
 }

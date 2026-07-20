@@ -465,16 +465,16 @@ func (c *Client) PesquisarAssunto(ctx context.Context, params PesquisarAssuntoPa
 
 // PesquisarProcessoResult representa um processo retornado pela pesquisa geral.
 type PesquisarProcessoResult struct {
-	IDProcedimento                 string                            `json:"idProcedimento"`
-	IDTipoProcedimento             string                            `json:"idTipoProcedimento"`
-	NomeTipoProcedimento           string                            `json:"nomeTipoProcedimento"`
-	SiglaUnidadeGeradora           string                            `json:"siglaUnidadeGeradora"`
-	IDUnidadeGeradora              string                            `json:"idUnidadeGeradora"`
-	ProtocoloFormatadoProcedimento string                            `json:"protocoloFormatadoProcedimento"`
-	IDUsuarioGerador               string                            `json:"idUsuarioGerador"`
-	NomeUsuarioGerador             string                            `json:"nomeUsuarioGerador"`
-	SiglaUsuarioGerador            string                            `json:"siglaUsuarioGerador"`
-	DataGeracao                    string                            `json:"dataGeracao"`
+	IDProcedimento                 string                             `json:"idProcedimento"`
+	IDTipoProcedimento             string                             `json:"idTipoProcedimento"`
+	NomeTipoProcedimento           string                             `json:"nomeTipoProcedimento"`
+	SiglaUnidadeGeradora           string                             `json:"siglaUnidadeGeradora"`
+	IDUnidadeGeradora              string                             `json:"idUnidadeGeradora"`
+	ProtocoloFormatadoProcedimento string                             `json:"protocoloFormatadoProcedimento"`
+	IDUsuarioGerador               string                             `json:"idUsuarioGerador"`
+	NomeUsuarioGerador             string                             `json:"nomeUsuarioGerador"`
+	SiglaUsuarioGerador            string                             `json:"siglaUsuarioGerador"`
+	DataGeracao                    string                             `json:"dataGeracao"`
 	Documento                      Object[PesquisarProcessoDocumento] `json:"documento"`
 }
 
@@ -828,4 +828,78 @@ func (c *Client) ListarInteressadosProcesso(ctx context.Context, protocolo int, 
 	}
 
 	return env.Data, total, nil
+}
+
+// ListaSugestaoAssunto tipo utilizado funcao ListarSugestaoAssuntosProcesso
+type ListaSugestaoAssunto struct {
+	CodigoEstruturadoFormatado string `json:"codigoestruturadoformatado"`
+	Descricao                  string `json:"descricao"`
+	CodigoEstruturado          string `json:"codigoestruturado"`
+	ID                         string `json:"id"`
+}
+
+// ListaAssuntosProcessoParams parametros da query da funcao ListarSugestaoAssuntosProcesso
+type ListaAssuntosProcessoParams struct {
+	// TipoProcedimento obrigatorio
+	TipoProcedimento int
+	Limit            int
+	Start            int
+	Filter           string
+	ID               int
+}
+
+// Converte os parâmetros em [url.Values], omitindo os campos zerados.
+func (p ListaAssuntosProcessoParams) values() url.Values {
+	q := make(url.Values)
+	if p.Limit != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Limit))
+	}
+	if p.Start != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Start))
+	}
+	if p.Filter != "" {
+		q.Set("tipoprocedimento", p.Filter)
+	}
+	if p.ID != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.ID))
+	}
+	return q
+}
+
+func (c Client) ListarSugestaoAssuntosProcesso(ctx context.Context, params ListaAssuntosProcessoParams) ([]ListaSugestaoAssunto, int, error) {
+	if params.TipoProcedimento == 0 {
+		return nil, 0, fmt.Errorf("invalid tipo-procedimento : %d", params.TipoProcedimento)
+	}
+
+	url := fmt.Sprintf("%s/processo/assunto/sugestao/%d/listar", c.endpoint, params.TipoProcedimento)
+	if q := params.values().Encode(); q != "" {
+		url += "?" + q
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[[]ListaSugestaoAssunto]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, 0, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, 0, fmt.Errorf("consulta failed %d: %s", params.TipoProcedimento, result.Mensagem)
+	}
+
+	total, err := strconv.Atoi(result.Total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error: %w", err)
+	}
+	return result.Data, total, nil
 }

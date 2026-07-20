@@ -903,3 +903,75 @@ func (c Client) ListarSugestaoAssuntosProcesso(ctx context.Context, params Lista
 	}
 	return result.Data, total, nil
 }
+
+// CienciasProcesso tipo utilizado funcao ListarCiencasProcesso
+type CienciasProcesso struct {
+	IDProtocolo  string `json:"idProtocolo"`
+	IDAtividade  string `json:"idAtividade"`
+	Data         string `json:"data"`
+	IDUnidade    string `json:"idUnidade"`
+	Unidade      string `json:"unidade"`
+	SiglaUnidade string `json:"siglaUnidade"`
+	IDUsuario    string `json:"idUsuario"`
+	SiglaUsuario string `json:"siglaUsuario"`
+	NomeUsuario  string `json:"nomeUsuario"`
+	Descricao    string `json:"descricao"`
+}
+
+// ListaCienciaProcessoParams parametros da query da funcao ListarCiencasProcesso
+type ListaCienciaProcessoParams struct {
+	// Protocolo obrigatorio
+	Protocolo int
+	Limit     int
+	Start     int
+}
+
+// Converte os parâmetros em [url.Values], omitindo os campos zerados.
+func (p ListaCienciaProcessoParams) values() url.Values {
+	q := make(url.Values)
+	if p.Limit != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Limit))
+	}
+	if p.Start != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Start))
+	}
+	return q
+}
+
+func (c Client) ListarCiencasProcesso(ctx context.Context, params ListaCienciaProcessoParams) ([]CienciasProcesso, int, error) {
+	if params.Protocolo == 0 {
+		return nil, 0, fmt.Errorf("invalid protocolo : %d", params.Protocolo)
+	}
+
+	url := fmt.Sprintf("%s/processo/%d/ciencia/listar", c.endpoint, params.Protocolo)
+	if q := params.values().Encode(); q != "" {
+		url += "?" + q
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[[]CienciasProcesso]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, 0, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, 0, fmt.Errorf("consulta failed %d: %s", params.Protocolo, result.Mensagem)
+	}
+
+	total, err := strconv.Atoi(result.Total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error: %w", err)
+	}
+	return result.Data, total, nil
+}

@@ -465,16 +465,16 @@ func (c *Client) PesquisarAssunto(ctx context.Context, params PesquisarAssuntoPa
 
 // PesquisarProcessoResult representa um processo retornado pela pesquisa geral.
 type PesquisarProcessoResult struct {
-	IDProcedimento                 string                            `json:"idProcedimento"`
-	IDTipoProcedimento             string                            `json:"idTipoProcedimento"`
-	NomeTipoProcedimento           string                            `json:"nomeTipoProcedimento"`
-	SiglaUnidadeGeradora           string                            `json:"siglaUnidadeGeradora"`
-	IDUnidadeGeradora              string                            `json:"idUnidadeGeradora"`
-	ProtocoloFormatadoProcedimento string                            `json:"protocoloFormatadoProcedimento"`
-	IDUsuarioGerador               string                            `json:"idUsuarioGerador"`
-	NomeUsuarioGerador             string                            `json:"nomeUsuarioGerador"`
-	SiglaUsuarioGerador            string                            `json:"siglaUsuarioGerador"`
-	DataGeracao                    string                            `json:"dataGeracao"`
+	IDProcedimento                 string                             `json:"idProcedimento"`
+	IDTipoProcedimento             string                             `json:"idTipoProcedimento"`
+	NomeTipoProcedimento           string                             `json:"nomeTipoProcedimento"`
+	SiglaUnidadeGeradora           string                             `json:"siglaUnidadeGeradora"`
+	IDUnidadeGeradora              string                             `json:"idUnidadeGeradora"`
+	ProtocoloFormatadoProcedimento string                             `json:"protocoloFormatadoProcedimento"`
+	IDUsuarioGerador               string                             `json:"idUsuarioGerador"`
+	NomeUsuarioGerador             string                             `json:"nomeUsuarioGerador"`
+	SiglaUsuarioGerador            string                             `json:"siglaUsuarioGerador"`
+	DataGeracao                    string                             `json:"dataGeracao"`
 	Documento                      Object[PesquisarProcessoDocumento] `json:"documento"`
 }
 
@@ -828,4 +828,276 @@ func (c *Client) ListarInteressadosProcesso(ctx context.Context, protocolo int, 
 	}
 
 	return env.Data, total, nil
+}
+
+// ListaSugestaoAssunto tipo utilizado funcao ListarSugestaoAssuntosProcesso
+type ListaSugestaoAssunto struct {
+	CodigoEstruturadoFormatado string `json:"codigoestruturadoformatado"`
+	Descricao                  string `json:"descricao"`
+	CodigoEstruturado          string `json:"codigoestruturado"`
+	ID                         string `json:"id"`
+}
+
+// ListaAssuntosProcessoParams parametros da query da funcao ListarSugestaoAssuntosProcesso
+type ListaAssuntosProcessoParams struct {
+	// TipoProcedimento obrigatorio
+	TipoProcedimento int
+	Limit            int
+	Start            int
+	Filter           string
+	ID               int
+}
+
+// Converte os parâmetros em [url.Values], omitindo os campos zerados.
+func (p ListaAssuntosProcessoParams) values() url.Values {
+	q := make(url.Values)
+	if p.Limit != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Limit))
+	}
+	if p.Start != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Start))
+	}
+	if p.Filter != "" {
+		q.Set("tipoprocedimento", p.Filter)
+	}
+	if p.ID != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.ID))
+	}
+	return q
+}
+
+// ListarSugestaoAssuntosProcesso Retorna a lista de Sugestão de Assuntos pelo Tipo de Processo.
+func (c Client) ListarSugestaoAssuntosProcesso(ctx context.Context, params ListaAssuntosProcessoParams) ([]ListaSugestaoAssunto, int, error) {
+	if params.TipoProcedimento == 0 {
+		return nil, 0, fmt.Errorf("invalid tipo-procedimento : %d", params.TipoProcedimento)
+	}
+
+	url := fmt.Sprintf("%s/processo/assunto/sugestao/%d/listar", c.endpoint, params.TipoProcedimento)
+	if q := params.values().Encode(); q != "" {
+		url += "?" + q
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[[]ListaSugestaoAssunto]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, 0, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, 0, fmt.Errorf("consulta failed %d: %s", params.TipoProcedimento, result.Mensagem)
+	}
+
+	total, err := strconv.Atoi(result.Total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error: %w", err)
+	}
+	return result.Data, total, nil
+}
+
+// CienciasProcesso tipo utilizado funcao ListarCiencasProcesso.
+type CienciasProcesso struct {
+	IDProtocolo  string `json:"idProtocolo"`
+	IDAtividade  string `json:"idAtividade"`
+	Data         string `json:"data"`
+	IDUnidade    string `json:"idUnidade"`
+	Unidade      string `json:"unidade"`
+	SiglaUnidade string `json:"siglaUnidade"`
+	IDUsuario    string `json:"idUsuario"`
+	SiglaUsuario string `json:"siglaUsuario"`
+	NomeUsuario  string `json:"nomeUsuario"`
+	Descricao    string `json:"descricao"`
+}
+
+// ListaCienciaProcessoParams parametros da query da funcao ListarCiencasProcesso.
+type ListaCienciaProcessoParams struct {
+	// Protocolo obrigatorio
+	Protocolo int
+	Limit     int
+	Start     int
+}
+
+// Converte os parâmetros em [url.Values], omitindo os campos zerados.
+func (p ListaCienciaProcessoParams) values() url.Values {
+	q := make(url.Values)
+	if p.Limit != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Limit))
+	}
+	if p.Start != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Start))
+	}
+	return q
+}
+
+// ListarCiencasProcesso funcao Retorna a lista de Ciências do Processo.
+func (c Client) ListarCiencasProcesso(ctx context.Context, params ListaCienciaProcessoParams) ([]CienciasProcesso, int, error) {
+	if params.Protocolo == 0 {
+		return nil, 0, fmt.Errorf("invalid protocolo : %d", params.Protocolo)
+	}
+
+	url := fmt.Sprintf("%s/processo/%d/ciencia/listar", c.endpoint, params.Protocolo)
+	if q := params.values().Encode(); q != "" {
+		url += "?" + q
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[[]CienciasProcesso]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, 0, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, 0, fmt.Errorf("consulta failed %d: %s", params.Protocolo, result.Mensagem)
+	}
+
+	total, err := strconv.Atoi(result.Total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error: %w", err)
+	}
+	return result.Data, total, nil
+}
+
+// ListaMeusAcompanhamentosParams parametros da query da funcao ListarCiencasProcesso.
+type ListaMeusAcompanhamentosParams struct {
+	// Protocolo obrigatorio
+	Limit   int
+	Start   int
+	Grupo   int
+	Usuario int
+}
+
+// Converte os parâmetros em [url.Values], omitindo os campos zerados.
+func (p ListaMeusAcompanhamentosParams) values() url.Values {
+	q := make(url.Values)
+	if p.Limit != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Limit))
+	}
+	if p.Start != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Start))
+	}
+	if p.Grupo != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Grupo))
+	}
+	if p.Usuario != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Usuario))
+	}
+	return q
+}
+
+// ListarMeusAcompanhamentos funcao Retorna a lista de Ciências do Processo.
+func (c Client) ListarMeusAcompanhamentos(ctx context.Context, params ListaMeusAcompanhamentosParams) ([]Processo, int, error) {
+	url := fmt.Sprintf("%s/processo/listar/meus/acompanhamentos", c.endpoint)
+	if q := params.values().Encode(); q != "" {
+		url += "?" + q
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[[]Processo]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, 0, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, 0, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	total, err := strconv.Atoi(result.Total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error: %w", err)
+	}
+	return result.Data, total, nil
+}
+
+// ListaAcompanhamentosParams parametros da query da funcao ListarAcompanhamentos.
+type ListaAcompanhamentosParams struct {
+	// Protocolo obrigatorio
+	Grupo int
+	Limit int
+	Start int
+}
+
+// Converte os parâmetros em [url.Values], omitindo os campos zerados.
+func (p ListaAcompanhamentosParams) values() url.Values {
+	q := make(url.Values)
+	if p.Grupo != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Grupo))
+	}
+	if p.Limit != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Limit))
+	}
+	if p.Start != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Start))
+	}
+	return q
+}
+
+// ListarAcompanhamentos Retorna a lista de Processos Acompanhados na Unidade.
+func (c Client) ListarAcompanhamentos(ctx context.Context, params ListaAcompanhamentosParams) ([]Processo, int, error) {
+	if params.Grupo == 0 {
+		return nil, 0, fmt.Errorf("invalid Grupo: %d", params.Grupo)
+	}
+
+	url := fmt.Sprintf("%s/processo/listar/acompanhamentos", c.endpoint)
+	if q := params.values().Encode(); q != "" {
+		url += "?" + q
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[[]Processo]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, 0, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, 0, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	total, err := strconv.Atoi(result.Total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error: %w", err)
+	}
+	return result.Data, total, nil
 }

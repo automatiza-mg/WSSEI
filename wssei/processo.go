@@ -978,8 +978,8 @@ func (c Client) ListarCiencasProcesso(ctx context.Context, params ListaCienciaPr
 	return result.Data, total, nil
 }
 
-// ListaAcompanhamentosParams parametros da query da funcao ListarCiencasProcesso.
-type ListaAcompanhamentosParams struct {
+// ListaMeusAcompanhamentosParams parametros da query da funcao ListarCiencasProcesso.
+type ListaMeusAcompanhamentosParams struct {
 	// Protocolo obrigatorio
 	Limit   int
 	Start   int
@@ -988,7 +988,7 @@ type ListaAcompanhamentosParams struct {
 }
 
 // Converte os parâmetros em [url.Values], omitindo os campos zerados.
-func (p ListaAcompanhamentosParams) values() url.Values {
+func (p ListaMeusAcompanhamentosParams) values() url.Values {
 	q := make(url.Values)
 	if p.Limit != 0 {
 		q.Set("tipoprocedimento", strconv.Itoa(p.Limit))
@@ -1006,8 +1006,70 @@ func (p ListaAcompanhamentosParams) values() url.Values {
 }
 
 // ListarMeusAcompanhamentos funcao Retorna a lista de Ciências do Processo.
-func (c Client) ListarMeusAcompanhamentos(ctx context.Context, params ListaAcompanhamentosParams) ([]Processo, int, error) {
+func (c Client) ListarMeusAcompanhamentos(ctx context.Context, params ListaMeusAcompanhamentosParams) ([]Processo, int, error) {
 	url := fmt.Sprintf("%s/processo/listar/meus/acompanhamentos", c.endpoint)
+	if q := params.values().Encode(); q != "" {
+		url += "?" + q
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[[]Processo]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, 0, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, 0, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	total, err := strconv.Atoi(result.Total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error: %w", err)
+	}
+	return result.Data, total, nil
+}
+
+// ListaAcompanhamentosParams parametros da query da funcao ListarAcompanhamentos.
+type ListaAcompanhamentosParams struct {
+	// Protocolo obrigatorio
+	Grupo int
+	Limit int
+	Start int
+}
+
+// Converte os parâmetros em [url.Values], omitindo os campos zerados.
+func (p ListaAcompanhamentosParams) values() url.Values {
+	q := make(url.Values)
+	if p.Grupo != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Grupo))
+	}
+	if p.Limit != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Limit))
+	}
+	if p.Start != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Start))
+	}
+	return q
+}
+
+// ListarAcompanhamentos Retorna a lista de Processos Acompanhados na Unidade.
+func (c Client) ListarAcompanhamentos(ctx context.Context, params ListaAcompanhamentosParams) ([]Processo, int, error) {
+	if params.Grupo == 0 {
+		return nil, 0, fmt.Errorf("invalid Grupo: %d", params.Grupo)
+	}
+
+	url := fmt.Sprintf("%s/processo/listar/acompanhamentos", c.endpoint)
 	if q := params.values().Encode(); q != "" {
 		url += "?" + q
 	}

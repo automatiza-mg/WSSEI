@@ -1216,7 +1216,7 @@ func (c *Client) ListarProcessoBlocoInterno(ctx context.Context, bloco int) (*Pr
 	}
 	req.Header.Set("Accept", "application/json")
 
-	res, err:= c.http.Do(req)
+	res, err := c.http.Do(req)
 	if err != nil {
 		return nil, 0, fmt.Errorf("http do: %w", err)
 	}
@@ -1227,7 +1227,7 @@ func (c *Client) ListarProcessoBlocoInterno(ctx context.Context, bloco int) (*Pr
 		return nil, 0, fmt.Errorf("read body: %w", err)
 	}
 
-	if res.StatusCode != http.StatusOK{
+	if res.StatusCode != http.StatusOK {
 		return nil, 0, fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
 	}
 
@@ -1238,7 +1238,7 @@ func (c *Client) ListarProcessoBlocoInterno(ctx context.Context, bloco int) (*Pr
 
 	if !env.Sucesso {
 		return nil, 0, fmt.Errorf("invalid response: %s", env.Mensagem)
-	}	
+	}
 
 	total, err := env.getTotal()
 	if err != nil {

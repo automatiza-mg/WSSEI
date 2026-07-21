@@ -55,6 +55,9 @@ type DocumentoBlocoAssinaturaAssinaturas struct {
 // ListarDocumentosBlocoAssinatura retorna os documentos, as permissões do
 // usuário e o total de registros de um bloco de assinatura.
 func (c *Client) ListarDocumentosBlocoAssinatura(ctx context.Context, bloco int) (*DocumentoBlocoAssinatura, int, error) {
+	if bloco <= 0 {
+		return nil, 0, fmt.Errorf("bloco inválido")
+	}
 	endpoint := fmt.Sprintf("%s/bloco/assinatura/%d/documentos/listar", c.endpoint, bloco)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
@@ -638,4 +641,609 @@ func (c *Client) ConcluirBlocoAssinatura(ctx context.Context, params BlocoAction
 func (c *Client) ConcluirBlocoInterno(ctx context.Context, params BlocoActionParams) error {
 	endpoint := c.endpoint + "/bloco/interno/concluir"
 	return c.blocoActionRequest(ctx, params, endpoint)
+}
+
+// blocoRequest executa uma requisição de bloco utilizando o endpoint informado.
+func (c *Client) blocoRequest(ctx context.Context, endpoint string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("new request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("http do: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var env Envelope[struct{}]
+	if err := json.Unmarshal(body, &env); err != nil {
+		return fmt.Errorf("json unmarshal: %w", err)
+	}
+
+	if !env.Sucesso {
+		return fmt.Errorf("invalid response: %s", env.Mensagem)
+	}
+
+	return nil
+}
+
+// ReabrirBlocoAssinatura reabre um bloco de assinatura.
+func (c *Client) ReabrirBlocoAssinatura(ctx context.Context, bloco int) error {
+	if bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+	endpoint := fmt.Sprintf("%s/bloco/assinatura/%d/reabrir", c.endpoint, bloco)
+	return c.blocoRequest(ctx, endpoint)
+}
+
+// ReabrirBlocoInterno reabre um bloco interno.
+func (c *Client) ReabrirBlocoInterno(ctx context.Context, bloco int) error {
+	if bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+	endpoint := fmt.Sprintf("%s/bloco/interno/%d/reabrir", c.endpoint, bloco)
+	return c.blocoRequest(ctx, endpoint)
+}
+
+// RetornarBlocoAssinatura retorna um bloco de assinatura para a unidade.
+func (c *Client) RetornarBlocoAssinatura(ctx context.Context, bloco int) error {
+	if bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+	endpoint := fmt.Sprintf("%s/bloco/assinatura/%d/retornar", c.endpoint, bloco)
+	return c.blocoRequest(ctx, endpoint)
+}
+
+// DisponibilizarBlocoAssinatura disponibiliza um bloco de assinatura para outra unidade.
+func (c *Client) DisponibilizarBlocoAssinatura(ctx context.Context, bloco int) error {
+	if bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+	endpoint := fmt.Sprintf("%s/bloco/assinatura/%d/disponibilizar", c.endpoint, bloco)
+	return c.blocoRequest(ctx, endpoint)
+}
+
+// CancelarDisponibilizacaoBlocoAssinatura cancela a disponibilização de um bloco de assinatura.
+func (c *Client) CancelarDisponibilizacaoBlocoAssinatura(ctx context.Context, bloco int) error {
+	if bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+	endpoint := fmt.Sprintf("%s/bloco/assinatura/%d/disponibilizacao/cancelar", c.endpoint, bloco)
+	return c.blocoRequest(ctx, endpoint)
+}
+
+// CadastrarAnotacaoBlocoParams reúne os parâmetros necessários
+// para cadastrar uma anotação em um documento de um bloco.
+type CadastrarAnotacaoBlocoParams struct {
+	Protocolo int    `json:"protocolo"`
+	Anotacao  string `json:"anotacao"`
+}
+
+// CadastrarAnotacaoBloco realiza uma anotação em um documento
+// dentro de um bloco de assinatura.
+//
+// Este endpoint está marcado como deprecated pela API e pode ser removido
+// em versões futuras.
+func (c *Client) CadastrarAnotacaoBloco(ctx context.Context, bloco int, params CadastrarAnotacaoBlocoParams) error {
+	if bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+
+	jsonBody, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("json body: %w", err)
+	}
+
+	endpoint := fmt.Sprintf("%s/bloco/%d/anotacao", c.endpoint, bloco)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(jsonBody))
+	if err != nil {
+		return fmt.Errorf("new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("http do: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var env Envelope[struct{}]
+	if err := json.Unmarshal(body, &env); err != nil {
+		return fmt.Errorf("json unmarshal: %w", err)
+	}
+
+	if !env.Sucesso {
+		return fmt.Errorf("invalid response: %s", env.Mensagem)
+	}
+
+	return nil
+}
+
+// AnotacaoBlocoAssinaturaParams reúne os parâmetros necessários
+// para cadastrar ou alterar uma anotação em um documento de um
+// bloco de assinatura.
+type AnotacaoBlocoAssinaturaParams struct {
+	Bloco     int    `json:"bloco"`
+	Documento int    `json:"documento"`
+	Anotacao  string `json:"anotacao"`
+}
+
+// CadastrarAnotacaoBlocoAssinatura cadastra uma anotação em um documento
+// dentro de um bloco de assinatura.
+func (c *Client) CadastrarAnotacaoBlocoAssinatura(ctx context.Context, params AnotacaoBlocoAssinaturaParams) error {
+	if params.Bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+	if params.Documento <= 0 {
+		return fmt.Errorf("documento inválido")
+	}
+
+	jsonBody, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("json body: %w", err)
+	}
+
+	endpoint := c.endpoint + "/bloco/assinatura/anotacao/cadastrar"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(jsonBody))
+	if err != nil {
+		return fmt.Errorf("new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("http do: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var env Envelope[struct{}]
+	if err := json.Unmarshal(body, &env); err != nil {
+		return fmt.Errorf("json unmarshal: %w", err)
+	}
+
+	if !env.Sucesso {
+		return fmt.Errorf("invalid response: %s", env.Mensagem)
+	}
+
+	return nil
+}
+
+// AlterarAnotacaoBlocoAssinatura altera a anotação de um documento
+// pertencente a um bloco de assinatura.
+func (c *Client) AlterarAnotacaoBlocoAssinatura(ctx context.Context, params AnotacaoBlocoAssinaturaParams) error {
+	if params.Bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+	if params.Documento <= 0 {
+		return fmt.Errorf("documento inválido")
+	}
+
+	jsonBody, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("json body: %w", err)
+	}
+
+	endpoint := c.endpoint + "/bloco/assinatura/anotacao/alterar"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(jsonBody))
+	if err != nil {
+		return fmt.Errorf("new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("http do: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var env Envelope[struct{}]
+	if err := json.Unmarshal(body, &env); err != nil {
+		return fmt.Errorf("json unmarshal: %w", err)
+	}
+
+	if !env.Sucesso {
+		return fmt.Errorf("invalid response: %s", env.Mensagem)
+	}
+
+	return nil
+}
+
+// AnotacaoBlocoInternoParams reúne os parâmetros necessários
+// para cadastrar ou alterar uma anotação em um processo de um
+// bloco interno.
+type AnotacaoBlocoInternoParams struct {
+	Bloco     int    `json:"bloco"`
+	Protocolo int    `json:"protocolo"`
+	Anotacao  string `json:"anotacao"`
+}
+
+// CadastrarAnotacaoBlocoInterno cadastra uma anotação em um processo
+// dentro de um bloco interno.
+func (c *Client) CadastrarAnotacaoBlocoInterno(ctx context.Context, params AnotacaoBlocoInternoParams) error {
+	if params.Bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+	if params.Protocolo <= 0 {
+		return fmt.Errorf("protocolo inválido")
+	}
+
+	jsonBody, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("json body: %w", err)
+	}
+
+	endpoint := c.endpoint + "/bloco/interno/anotacao/cadastrar"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(jsonBody))
+	if err != nil {
+		return fmt.Errorf("new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("http do: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var env Envelope[struct{}]
+	if err := json.Unmarshal(body, &env); err != nil {
+		return fmt.Errorf("json unmarshal: %w", err)
+	}
+
+	if !env.Sucesso {
+		return fmt.Errorf("invalid response: %s", env.Mensagem)
+	}
+
+	return nil
+}
+
+// AlterarAnotacaoBlocoInterno altera a anotação de um processo
+// pertencente a um bloco interno.
+func (c *Client) AlterarAnotacaoBlocoInterno(ctx context.Context, params AnotacaoBlocoInternoParams) error {
+	if params.Bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+	if params.Protocolo <= 0 {
+		return fmt.Errorf("protocolo inválido")
+	}
+
+	jsonBody, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("json body: %w", err)
+	}
+
+	endpoint := c.endpoint + "/bloco/interno/anotacao/alterar"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(jsonBody))
+	if err != nil {
+		return fmt.Errorf("new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("http do: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var env Envelope[struct{}]
+	if err := json.Unmarshal(body, &env); err != nil {
+		return fmt.Errorf("json unmarshal: %w", err)
+	}
+
+	if !env.Sucesso {
+		return fmt.Errorf("invalid response: %s", env.Mensagem)
+	}
+
+	return nil
+}
+
+// BlocoAssinaturaDocumentosParams reúne os parâmetros necessários
+// para realizar ações sobre documentos de um bloco de assinatura.
+type BlocoAssinaturaDocumentosParams struct {
+	Documentos []string
+}
+
+// blocoAssinaturaDocumentosParams representa o formato esperado
+// pelo WSSEI para o corpo da requisição de documentos.
+type blocoAssinaturaDocumentosParams struct {
+	Documentos string `json:"documentos"`
+}
+
+// documentosBlocoAssinaturaRequest executa uma ação sobre documentos
+// de um bloco de assinatura enviando a lista de identificadores
+// no formato esperado pelo WSSEI.
+func (c *Client) documentosBlocoAssinaturaRequest(ctx context.Context, endpoint string, params BlocoAssinaturaDocumentosParams) error {
+	if len(params.Documentos) == 0 {
+		return fmt.Errorf("documentos required")
+	}
+
+	for _, b := range params.Documentos {
+		if strings.TrimSpace(b) == "" {
+			return fmt.Errorf("documento vazio na lista de documentos")
+		}
+	}
+
+	jsonBody, err := json.Marshal(blocoAssinaturaDocumentosParams{
+		Documentos: strings.Join(params.Documentos, ","),
+	})
+	if err != nil {
+		return fmt.Errorf("json body: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(jsonBody))
+	if err != nil {
+		return fmt.Errorf("new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("http do: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var env Envelope[struct{}]
+	if err := json.Unmarshal(body, &env); err != nil {
+		return fmt.Errorf("json unmarshal: %w", err)
+	}
+
+	if !env.Sucesso {
+		return fmt.Errorf("invalid response: %s", env.Mensagem)
+	}
+
+	return nil
+}
+
+// IncluirDocumentoBlocoAssinatura inclui um ou mais documentos
+// em um bloco de assinatura.
+func (c *Client) IncluirDocumentosBlocoAssinatura(ctx context.Context, params BlocoAssinaturaDocumentosParams, bloco int) error {
+	if bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+	endpoint := fmt.Sprintf("%s/bloco/assinatura/%d/documentos/incluir", c.endpoint, bloco)
+	return c.documentosBlocoAssinaturaRequest(ctx, endpoint, params)
+}
+
+// RetirarDocumentosBlocoAssinatura retira um ou mais documentos
+// de um bloco de assinatura.
+func (c *Client) RetirarDocumentosBlocoAssinatura(ctx context.Context, params BlocoAssinaturaDocumentosParams, bloco int) error {
+	if bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+	endpoint := fmt.Sprintf("%s/bloco/assinatura/%d/documentos/retirar", c.endpoint, bloco)
+	return c.documentosBlocoAssinaturaRequest(ctx, endpoint, params)
+}
+
+// BlocoInternoProcessoParams reúne os parâmetros necessários
+// para realizar ações sobre processos de um bloco interno.
+type BlocoInternoProcessoParams struct {
+	Protocolos []string
+}
+
+// blocoInternoProcessoParams representa o formato esperado
+// pelo WSSEI para o corpo da requisição de processos.
+type blocoInternoProcessoParams struct {
+	Protocolos string `json:"protocolos"`
+}
+
+// processosBlocoInternoRequest executa uma ação sobre processos
+// de um bloco interno enviando a lista de identificadores
+// no formato esperado pelo WSSEI.
+func (c *Client) processosBlocoInternoRequest(ctx context.Context, endpoint string, params BlocoInternoProcessoParams) error {
+	if len(params.Protocolos) == 0 {
+		return fmt.Errorf("protocolos required")
+	}
+
+	for _, b := range params.Protocolos {
+		if strings.TrimSpace(b) == "" {
+			return fmt.Errorf("protocolo vazio na lista de protocolos")
+		}
+	}
+
+	jsonBody, err := json.Marshal(blocoInternoProcessoParams{
+		Protocolos: strings.Join(params.Protocolos, ","),
+	})
+	if err != nil {
+		return fmt.Errorf("json body: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(jsonBody))
+	if err != nil {
+		return fmt.Errorf("new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("http do: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var env Envelope[struct{}]
+	if err := json.Unmarshal(body, &env); err != nil {
+		return fmt.Errorf("json unmarshal: %w", err)
+	}
+
+	if !env.Sucesso {
+		return fmt.Errorf("invalid response: %s", env.Mensagem)
+	}
+
+	return nil
+}
+
+// IncluirProcessosBlocoInterno inclui um ou mais processos
+// em um bloco interno.
+func (c *Client) IncluirProcessoBlocoInterno(ctx context.Context, params BlocoInternoProcessoParams, bloco int) error {
+	if bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+	endpoint := fmt.Sprintf("%s/bloco/interno/%d/processos/incluir", c.endpoint, bloco)
+	return c.processosBlocoInternoRequest(ctx, endpoint, params)
+}
+
+// RetirarProcessosBlocoInterno retira um ou mais processos
+// de um bloco interno.
+func (c *Client) RetirarProcessoBlocoInterno(ctx context.Context, params BlocoInternoProcessoParams, bloco int) error {
+	if bloco <= 0 {
+		return fmt.Errorf("bloco inválido")
+	}
+	endpoint := fmt.Sprintf("%s/bloco/interno/%d/processos/retirar", c.endpoint, bloco)
+	return c.processosBlocoInternoRequest(ctx, endpoint, params)
+}
+
+// ProcessoBlocoInterno representa o conteúdo de um bloco interno,
+// reunindo as permissões do usuário e a lista de processos.
+type ProcessoBlocoInterno struct {
+	Permissoes ProcessoBlocoInternoPermissoes   `json:"permissoes"`
+	Dados      Slice[ProcessoBlocoInternoDados] `json:"dados"`
+}
+
+// ProcessoBlocoInternoPermissoes reúne as permissões do usuário logado
+// sobre um [ProcessoBlocoInterno].
+type ProcessoBlocoInternoPermissoes struct {
+	Retirar bool `json:"retirar"`
+	Anotar  bool `json:"anotar"`
+}
+
+// ProcessoBlocoInternoDados representa um processo dentro de um bloco interno.
+type ProcessoBlocoInternoDados struct {
+	Sequencia          string `json:"sequencia"`
+	ID                 string `json:"id"`
+	Data               string `json:"data"`
+	NomeTipoProcesso   string `json:"nomeTipoProcesso"`
+	ProtocoloFormatado string `json:"protocoloFormatado"`
+	Anotacao           string `json:"anotacao"`
+}
+
+// ListarProcessoBlocoInterno retorna os processos, as permissões do usuário
+// e o total de registros de um bloco interno.
+func (c *Client) ListarProcessoBlocoInterno(ctx context.Context, bloco int) (*ProcessoBlocoInterno, int, error) {
+	if bloco <= 0 {
+		return nil, 0, fmt.Errorf("bloco inválido")
+	}
+
+	endpoint := fmt.Sprintf("%s/bloco/interno/%d/processos/listar", c.endpoint, bloco)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("new request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("http do: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, 0, fmt.Errorf("read body: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, 0, fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var env Envelope[ProcessoBlocoInterno]
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, 0, fmt.Errorf("json unmarshal: %w", err)
+	}
+
+	if !env.Sucesso {
+		return nil, 0, fmt.Errorf("invalid response: %s", env.Mensagem)
+	}
+
+	total, err := env.getTotal()
+	if err != nil {
+		return nil, 0, fmt.Errorf("parse total %q: %w", env.Total, err)
+	}
+
+	return &env.Data, total, nil
 }

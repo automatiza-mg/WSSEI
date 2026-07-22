@@ -1427,7 +1427,7 @@ type CassarAcessoParams struct {
 	Atividade int
 }
 
-// CassarAcesso Inativa o Acesso de um Usuário a um Processo
+// CassarAcesso Inativa o Acesso de um Usuário a um Processo.
 func (c *Client) CassarAcesso(ctx context.Context, procedimento int, params CassarAcessoParams) (*PostProcesso, error) {
 	if procedimento <= 0 {
 		return nil, fmt.Errorf("invalid Procedimento: %d", procedimento)
@@ -1482,7 +1482,7 @@ type EniviarProcessoParams struct {
 	SinReabrir                    string
 }
 
-// EnviarProcesso Envia o Processo para outras Unidades
+// EnviarProcesso Envia o Processo para outras Unidades.
 func (c *Client) EnviarProcesso(ctx context.Context, params EniviarProcessoParams) (*PostProcesso, error) {
 	if strings.TrimSpace(params.NumeroProcesso) == "" {
 		return nil, fmt.Errorf("NumeroProcesso required")
@@ -1497,6 +1497,49 @@ func (c *Client) EnviarProcesso(ctx context.Context, params EniviarProcessoParam
 	}
 
 	url := fmt.Sprintf("%s/processo/enviar", c.endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// ConcluirProcessoParams tipo utilizado na funcao ConcluirProcesso.
+type ConcluirProcessoParams struct {
+	// NumeroProcesso obrigatorio
+	NumeroProcesso string
+}
+
+// ConcluirProcesso Conclui o Processo.
+func (c *Client) ConcluirProcesso(ctx context.Context, params ConcluirProcessoParams) (*PostProcesso, error) {
+	if strings.TrimSpace(params.NumeroProcesso) == "" {
+		return nil, fmt.Errorf("NumeroProcesso required")
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/concluir", c.endpoint)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
 	if err != nil {

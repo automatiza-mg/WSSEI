@@ -1042,7 +1042,7 @@ func (c Client) ListarMeusAcompanhamentos(ctx context.Context, params ListaMeusA
 
 // ListaAcompanhamentosParams parametros da query da funcao ListarAcompanhamentos.
 type ListaAcompanhamentosParams struct {
-	// Protocolo obrigatorio
+	// Grupo obrigatorio
 	Grupo int
 	Limit int
 	Start int
@@ -1100,4 +1100,1205 @@ func (c Client) ListarAcompanhamentos(ctx context.Context, params ListaAcompanha
 		return nil, 0, fmt.Errorf("error: %w", err)
 	}
 	return result.Data, total, nil
+}
+
+// ListaCredenciamentoParams parametros da query da funcao ListarAcompanhamentos.
+type ListaCredenciamentoParams struct {
+	// Procedimento obrigatorio
+	Procedimento int
+	Limit        int
+	Start        int
+}
+
+// Converte os parâmetros em [url.Values], omitindo os campos zerados.
+func (p ListaCredenciamentoParams) values() url.Values {
+	q := make(url.Values)
+	if p.Limit != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Limit))
+	}
+	if p.Start != 0 {
+		q.Set("tipoprocedimento", strconv.Itoa(p.Start))
+	}
+	return q
+}
+
+// ListaCredenciamento tipo utilizado na funcao ListarCredenciamentoProcesso.
+type ListaCredenciamento struct {
+	Atividade         string `json:"atividade"`
+	SiglaUsuario      string `json:"siglaUsuario"`
+	SiglaUnidade      string `json:"siglaUnidade"`
+	NomeUsuario       string `json:"nomeUsuario"`
+	DescricaoUnidade  string `json:"descricaoUnidade"`
+	DataAbertura      string `json:"dataAbertura"`
+	CredencialCassada bool   `json:"credencialCassada"`
+	DataCassacao      string `json:"dataCassacao"`
+}
+
+// ListarCredenciamentoProcesso Retorna a lista de Usuário com Credênciais de Acesso ao Processo.
+func (c Client) ListarCredenciamentoProcesso(ctx context.Context, params ListaCredenciamentoParams) ([]ListaCredenciamento, int, error) {
+	if params.Procedimento == 0 {
+		return nil, 0, fmt.Errorf("invalid Procedimento: %d", params.Procedimento)
+	}
+
+	url := fmt.Sprintf("%s/processo/%d/credenciamento/listar", c.endpoint, params.Procedimento)
+	if q := params.values().Encode(); q != "" {
+		url += "?" + q
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[[]ListaCredenciamento]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, 0, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, 0, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	total, err := strconv.Atoi(result.Total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error: %w", err)
+	}
+	return result.Data, total, nil
+}
+
+// ConsultarAtribuicaoProcesso Retorna os dados da Atribuição do Processo.
+func (c Client) ConsultarAtribuicaoProcesso(ctx context.Context, protocolo int) (*ProcessoUsuarioAtribuido, error) {
+	if protocolo == 0 {
+		return nil, fmt.Errorf("invalid protocolo: %d", protocolo)
+	}
+
+	url := fmt.Sprintf("%s/processo/%d/consultar/atribuicao", c.endpoint, protocolo)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[ProcessoUsuarioAtribuido]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	return &result.Data, nil
+}
+
+// AcessoProcesso tipo utilizado na funcao VerificarAcessoProcesso.
+type AcessoProcesso struct {
+	AcessoLiberado     bool `json:"acessoLiberado"`
+	ChamarAutenticacao bool `json:"chamarAutenticacao"`
+}
+
+// VerificarAcessoProcesso Verifica se o Usuário pode acessar o Processo.
+func (c Client) VerificarAcessoProcesso(ctx context.Context, protocolo int) (*AcessoProcesso, error) {
+	if protocolo == 0 {
+		return nil, fmt.Errorf("invalid protocolo: %d", protocolo)
+	}
+
+	url := fmt.Sprintf("%s/processo/verifica/acesso/%d", c.endpoint, protocolo)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[AcessoProcesso]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	return &result.Data, nil
+}
+
+// ConsultaAcompanhamento tipo utilizado na funcao ConsultarAcompanhamentosProcesso.
+type ConsultaAcompanhamento struct {
+	IDAcompanhamento      string `json:"idAcompanhamento"`
+	IDProtocolo           string `json:"idProtocolo"`
+	IDUnidade             string `json:"idUnidade"`
+	Observacao            string `json:"observacao"`
+	Visualizacao          string `json:"visualizacao"`
+	IDGrupoAcompanhamento string `json:"idGrupoAcompanhamento"`
+	NomeGrupo             string `json:"nomeGrupo"`
+}
+
+// ConsultarAcompanhamentosProcesso Retorna os dados de Acompanhamento do Processo.
+func (c Client) ConsultarAcompanhamentosProcesso(ctx context.Context, protocolo int) (*ConsultaAcompanhamento, error) {
+	if protocolo == 0 {
+		return nil, fmt.Errorf("invalid protocolo: %d", protocolo)
+	}
+
+	url := fmt.Sprintf("%s/processo/acompanhamento/consultar?%d", c.endpoint, protocolo)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[ConsultaAcompanhamento]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	return &result.Data, nil
+}
+
+// SobrestoParams tipo utilizado na funcao SobrestarProcesso.
+type SobrestoParams struct {
+	ProtocoloDestino int
+	// Motivo obrigatorio
+	Motivo string
+}
+
+// PostProcesso tipo utilizado na funcao SobrestarProcesso.
+type PostProcesso struct {
+	Mensagem string `json:"mensagem"`
+	Total    string `json:"total"`
+}
+
+// SobrestarProcesso Realiza o Sobrestamento do Processo.
+func (c *Client) SobrestarProcesso(ctx context.Context, protocolo int, params SobrestoParams) (*PostProcesso, error) {
+	if protocolo <= 0 {
+		return nil, fmt.Errorf("invalid protocolo: %d", protocolo)
+	}
+	if strings.TrimSpace(params.Motivo) == "" {
+		return nil, fmt.Errorf("Motivo required")
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/%d/sobrestar/processo", c.endpoint, protocolo)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// AcessoParams tipo utilizado na funcao ConcederAcesso.
+type AcessoParams struct {
+	// Todos sao obrigatorios
+	Unidade int
+	Usuario int
+}
+
+// ConcederAcesso Concede Acesso a um Usuário no Processo.
+func (c *Client) ConcederAcesso(ctx context.Context, procedimento int, params AcessoParams) (*PostProcesso, error) {
+	if procedimento <= 0 {
+		return nil, fmt.Errorf("invalid Procedimento: %d", procedimento)
+	}
+	if params.Unidade <= 0 {
+		return nil, fmt.Errorf("invalid Unidade: %d", params.Unidade)
+	}
+	if params.Usuario <= 0 {
+		return nil, fmt.Errorf("invalid Usuario: %d", params.Usuario)
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/%d/credenciamento/conceder", c.endpoint, procedimento)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// RenunciarAcesso O Usuário Renuncia das credênciais de acesso ao Processo.
+func (c *Client) RenunciarAcesso(ctx context.Context, procedimento int) (*PostProcesso, error) {
+	if procedimento <= 0 {
+		return nil, fmt.Errorf("invalid Procedimento: %d", procedimento)
+	}
+
+	url := fmt.Sprintf("%s/processo/%d/credenciamento/renunciar", c.endpoint, procedimento)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// CassarAcessoParams tipo utilizado na funcao CassarAcesso.
+type CassarAcessoParams struct {
+	// Todos sao obrigatorios
+	Atividade int
+}
+
+// CassarAcesso Inativa o Acesso de um Usuário a um Processo.
+func (c *Client) CassarAcesso(ctx context.Context, procedimento int, params CassarAcessoParams) (*PostProcesso, error) {
+	if procedimento <= 0 {
+		return nil, fmt.Errorf("invalid Procedimento: %d", procedimento)
+	}
+	if params.Atividade <= 0 {
+		return nil, fmt.Errorf("invalid Unidade: %d", params.Atividade)
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/%d/credenciamento/cassar", c.endpoint, procedimento)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// EniviarProcessoParams tipo utilizado na funcao EnviarProcesso.
+type EniviarProcessoParams struct {
+	// NumeroProcesso obrigatorio
+	NumeroProcesso string
+	// UnidadesDestino obrigatorio
+	UnidadesDestino               string
+	SinManterAbertoUnidade        string
+	SinRemoverAnotacao            string
+	SinEnviarEmailNotificacao     string
+	DataRetornoProgramado         string
+	DiasRetornoProgramado         string
+	SinDiasUteisRetornoProgramado string
+	SinReabrir                    string
+}
+
+// EnviarProcesso Envia o Processo para outras Unidades.
+func (c *Client) EnviarProcesso(ctx context.Context, params EniviarProcessoParams) (*PostProcesso, error) {
+	if strings.TrimSpace(params.NumeroProcesso) == "" {
+		return nil, fmt.Errorf("NumeroProcesso required")
+	}
+	if strings.TrimSpace(params.UnidadesDestino) == "" {
+		return nil, fmt.Errorf("UnidadesDestino required")
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/enviar", c.endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// ConcluirProcessoParams tipo utilizado na funcao ConcluirProcesso.
+type ConcluirProcessoParams struct {
+	// NumeroProcesso obrigatorio
+	NumeroProcesso string
+}
+
+// ConcluirProcesso Conclui o Processo.
+func (c *Client) ConcluirProcesso(ctx context.Context, params ConcluirProcessoParams) (*PostProcesso, error) {
+	if strings.TrimSpace(params.NumeroProcesso) == "" {
+		return nil, fmt.Errorf("NumeroProcesso required")
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/concluir", c.endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// ReceberProcessoParams tipo utilizado na funcao ReceberProcesso.
+type ReceberProcessoParams struct {
+	// Procedimento obrigatorio
+	Procedimento int
+}
+
+// ReceberProcesso Recebe um Processo de outra Unidade.
+func (c *Client) ReceberProcesso(ctx context.Context, params ReceberProcessoParams) (*PostProcesso, error) {
+	if params.Procedimento <= 0 {
+		return nil, fmt.Errorf("invalid procedimento: %d", params.Procedimento)
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/receber", c.endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// AcessoProcessoParams tipo utilizado na funcao AcessoProcesso.
+type AcessoProcessoParams struct {
+	// Todos obrigatorios
+	Protocolo int
+	Senha     string
+}
+
+// AcessoProcesso Realiza a verificação de acesso do Usuário ao Processo.
+func (c *Client) AcessoProcesso(ctx context.Context, params AcessoProcessoParams) (*PostProcesso, error) {
+	if params.Protocolo <= 0 {
+		return nil, fmt.Errorf("invalid procedimento: %d", params.Protocolo)
+	}
+	if strings.TrimSpace(params.Senha) == "" {
+		return nil, fmt.Errorf("invalid senha: %s", params.Senha)
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/identificar/acesso", c.endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// AcompanharProcessoParams tipo utilizado na funcao AcompanharProcesso.
+type AcompanharProcessoParams struct {
+	// Protocolo obrigatorio
+	Protocolo int
+	// Grupo obrigatorio
+	Grupo      int
+	observacao string
+}
+
+// AcompanharProcesso Realiza o Acompanhamento do Processo.
+func (c *Client) AcompanharProcesso(ctx context.Context, params AcompanharProcessoParams) (*PostProcesso, error) {
+	if params.Protocolo <= 0 {
+		return nil, fmt.Errorf("invalid procedimento: %d", params.Protocolo)
+	}
+	if params.Grupo <= 0 {
+		return nil, fmt.Errorf("invalid Grupo: %d", params.Grupo)
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/acompanhar", c.endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// AlterarAcompanhamentoProcessoParams tipo utilizado na funcao AlterarAcompanhamentoProcesso.
+type AlterarAcompanhamentoProcessoParams struct {
+	// Protocolo obrigatorio
+	Protocolo int
+	// Grupo obrigatorio
+	Grupo      int
+	observacao string
+}
+
+// AlterarAcompanhamentoProcesso Realiza a edição do Acompanhamento de um Processo.
+func (c *Client) AlterarAcompanhamentoProcesso(ctx context.Context, params AcompanharProcessoParams) (*PostProcesso, error) {
+	if params.Protocolo <= 0 {
+		return nil, fmt.Errorf("invalid procedimento: %d", params.Protocolo)
+	}
+	if params.Grupo <= 0 {
+		return nil, fmt.Errorf("invalid Grupo: %d", params.Grupo)
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/acompanhamento/alterar", c.endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// ReabrirProcessoParams tipo utilizado na funcao ReabrirProcesso.
+type ReabrirProcessoParams struct {
+	// NumeroProcesso obrigatorio
+	NumeroProcesso string
+}
+
+// ReabrirProcesso Reabre o Processo na Unidade.
+func (c *Client) ReabrirProcesso(ctx context.Context, procedimento int, params ReabrirProcessoParams) (*PostProcesso, error) {
+	if procedimento <= 0 {
+		return nil, fmt.Errorf("invalid procedimento: %d", procedimento)
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/reabrir/%d", c.endpoint, procedimento)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// AtribuirProcessoParams tipo utilizado na funcao AtribuirProcesso.
+type AtribuirProcessoParams struct {
+	// Todos obrigatorios
+	NumeroProcesso string
+	Usuario        int
+}
+
+// AtribuirProcesso Atribui um Processo a um Usuário.
+func (c *Client) AtribuirProcesso(ctx context.Context, params AtribuirProcessoParams) (*PostProcesso, error) {
+	if strings.TrimSpace(params.NumeroProcesso) == "" {
+		return nil, fmt.Errorf("invalid NumeroProcesso: %s", params.NumeroProcesso)
+	}
+	if params.Usuario <= 0 {
+		return nil, fmt.Errorf("invalid procedimento: %d", params.Usuario)
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/atribuir", c.endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// RemoverAtribuicaoProcesso Remove a Atribuição de um Processo.
+func (c *Client) RemoverAtribuicaoProcesso(ctx context.Context, protocolo int) (*PostProcesso, error) {
+	if protocolo <= 0 {
+		return nil, fmt.Errorf("invalid protocolo: %d", protocolo)
+	}
+	url := fmt.Sprintf("%s/processo/%d/remover/atribuicao", c.endpoint, protocolo)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// CancelarSobrestamentoProcesso Cancela o Sobrestamento do Processo.
+func (c *Client) CancelarSobrestamentoProcesso(ctx context.Context, protocolo int) (*PostProcesso, error) {
+	if protocolo <= 0 {
+		return nil, fmt.Errorf("invalid protocolo: %d", protocolo)
+	}
+	url := fmt.Sprintf("%s/processo/%d/cancelar/sobrestamento", c.endpoint, protocolo)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// ExcluirAcompanhamento Exclui o Acompanhamento de um Processo.
+func (c *Client) ExcluirAcompanhamento(ctx context.Context, acompanhamento int) (*PostProcesso, error) {
+	if acompanhamento <= 0 {
+		return nil, fmt.Errorf("invalid protocolo: %d", acompanhamento)
+	}
+	url := fmt.Sprintf("%s/processo/acompanhamento/%d/excluir", c.endpoint, acompanhamento)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// DarCienciaProcesso Da Ciencia no Processo.
+func (c *Client) DarCienciaProcesso(ctx context.Context, procedimento int) (*PostProcesso, error) {
+	if procedimento <= 0 {
+		return nil, fmt.Errorf("invalid protocolo: %d", procedimento)
+	}
+	url := fmt.Sprintf("%s/processo/%d/ciencia", c.endpoint, procedimento)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// AlterarProcessoParams tipo utilizado na funcao AlterarProcesso.
+type AlterarProcessoParams struct {
+	Assuntos      string
+	Interessados  string
+	Especificacao string
+	Observacao    string
+	// IDTipoProcesso obrigatorio
+	IDTipoProcesso int
+	// NivelACesso obrigatorio
+	NivelACesso     int
+	IDHipoteseLegal int
+	// GrauSigilo obrigatorio
+	GrauSigilo string
+}
+
+// AlterarProcesso Realiza a edição de um Processo.
+func (c *Client) AlterarProcesso(ctx context.Context, protocolo int, params AlterarProcessoParams) (*PostProcesso, error) {
+	if protocolo <= 0 {
+		return nil, fmt.Errorf("invalid protocolo: %d", protocolo)
+	}
+	if params.IDTipoProcesso <= 0 {
+		return nil, fmt.Errorf("invalid IDTipoProcesso: %d", params.IDTipoProcesso)
+	}
+	if params.NivelACesso <= 0 {
+		return nil, fmt.Errorf("invalid NivelACesso: %d", params.NivelACesso)
+	}
+	if strings.TrimSpace(params.GrauSigilo) == "" {
+		return nil, fmt.Errorf("invalid GrauSigilo: %s", params.GrauSigilo)
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/%d/alterar", c.endpoint, protocolo)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// AgendarRetornoProgramadoParams tipo utilizado na funcao AgendarRetornoProgramado.
+type AgendarRetornoProgramadoParams struct {
+	// Todos obrigatórios
+	AtividadeEnvio int
+	Unidade        int
+	DtProgramada   string
+}
+
+// AgendarRetornoProgramado Realiza o Agendamento do Retorno Programado de um Processo.
+func (c *Client) AgendarRetornoProgramado(ctx context.Context, params AgendarRetornoProgramadoParams) (*PostProcesso, error) {
+
+	if params.AtividadeEnvio <= 0 {
+		return nil, fmt.Errorf("invalid AtividadeEnvio: %d", params.AtividadeEnvio)
+	}
+	if params.Unidade <= 0 {
+		return nil, fmt.Errorf("invalid Unidade: %d", params.Unidade)
+	}
+	if strings.TrimSpace(params.DtProgramada) == "" {
+		return nil, fmt.Errorf("invalid DtProgramada: %s", params.DtProgramada)
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/agendar/retorno/programado", c.endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// ConsultaSobrestamento tipo utilizado na funcao ConsultarSobrestamentoProcesso.
+type ConsultaSobrestamento struct {
+	IDAtividade      string `json:"idAtividade"`
+	IDProtocolo      string `json:"idProtocolo"`
+	DthAbertura      string `json:"dthAbertura"`
+	SinInicial       string `json:"sinInicial"`
+	DtaPrazo         string `json:"dtaPrazo"`
+	TipoVisualizacao string `json:"tipoVisualizacao"`
+	DthConclusao     string `json:"dthConclusao"`
+}
+
+// ConsultarSobrestamentoProcesso Retorna os dados de Sobrestamento do Processo.
+func (c Client) ConsultarSobrestamentoProcesso(ctx context.Context, protocolo int) (*ConsultaSobrestamento, error) {
+	if protocolo <= 0 {
+		return nil, fmt.Errorf("invalid protocolo: %d", protocolo)
+	}
+
+	url := fmt.Sprintf("%s/processo/listar/sobrstamento/%d", c.endpoint, protocolo)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[ConsultaSobrestamento]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	return &result.Data, nil
+}
+
+// ListaUnidades tipo utilizado na funcao ListarUnidadesProcesso.
+type ListaUnidades struct {
+	Processo string `json:"processo"`
+	Unidades string `json:"unidades"`
+}
+
+// ListarUnidadesProcesso Retorna as Unidades do Processo.
+func (c Client) ListarUnidadesProcesso(ctx context.Context, protocolo int) (*ListaUnidades, error) {
+	if protocolo <= 0 {
+		return nil, fmt.Errorf("invalid protocolo: %d", protocolo)
+	}
+
+	url := fmt.Sprintf("%s/processo/listar/unidades/%d", c.endpoint, protocolo)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[ListaUnidades]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	return &result.Data, nil
+}
+
+// NivelAcessoPermitido representa os níveis de acesso disponíveis.
+type NivelAcessoPermitido struct {
+	Publico  bool `json:"publico"`
+	Restrito bool `json:"restrito"`
+	Sigiloso bool `json:"sigiloso"`
+}
+
+// ConfiguracaoAcesso tipo utilizado para mapear as regras e níveis de acesso de um processo ou documento.
+type ConfiguracaoAcesso struct {
+	NivelAcessoPermitido         NivelAcessoPermitido `json:"nivelAcessoPermitido"`
+	ObrigatoriedadeHipoteseLegal string               `json:"obrigatoriedadeHipoteseLegal"`
+	ObrigatoriedadeGrauSigilo    string               `json:"obrigatoriedadeGrauSigilo"`
+}
+
+// ConsultarTipoTemplate Retorna os dados do Tipo de Template.
+func (c Client) ConsultarTipoTemplate(ctx context.Context, id int) (*ConfiguracaoAcesso, error) {
+	if id <= 0 {
+		return nil, fmt.Errorf("invalid id: %d", id)
+	}
+
+	url := fmt.Sprintf("%s/processo/tipo/template?%d", c.endpoint, id)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[ConfiguracaoAcesso]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	return &result.Data, nil
+}
+
+// AssuntoProcesso representa um assunto vinculado ao processo.
+type AssuntoProcesso struct {
+	ID        string `json:"id"`
+	Codigo    string `json:"codigo"`
+	Descricao string `json:"descricao"`
+}
+
+// ObservacaoProcesso representa uma observação vinculada a uma unidade no processo.
+type ObservacaoProcesso struct {
+	Unidade    string `json:"unidade"`
+	Observacao string `json:"observacao"`
+}
+
+// DadosProcesso tipo utilizado para mapear os dados gerais de um processo, incluindo assuntos, interessados e observações.
+type DadosProcesso struct {
+	Especificacao string               `json:"especificacao"`
+	TipoProcesso  string               `json:"tipoProcesso"`
+	Assuntos      []AssuntoProcesso    `json:"assuntos"`
+	Interessados  []string             `json:"interessados"`
+	NivelAcesso   string               `json:"nivelAcesso"`
+	HipoteseLegal string               `json:"hipoteseLegal"`
+	GrauSigilo    string               `json:"grauSigilo"`
+	Observacoes   []ObservacaoProcesso `json:"observacoes"`
+}
+
+// DetalharProcesso Retorna os dados do Processo.
+func (c Client) DetalharProcesso(ctx context.Context, id int) (*DadosProcesso, error) {
+	if id <= 0 {
+		return nil, fmt.Errorf("invalid id: %d", id)
+	}
+
+	url := fmt.Sprintf("%s/processo/consultar/%d", c.endpoint, id)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[DadosProcesso]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	return &result.Data, nil
+}
+
+// ConsultaProcesso tipo utilizado na funcao ConsultarProcessoProtocoloFormatado.
+type ConsultaProcesso struct {
+	IDProcedimento                 string `json:"IdProcedimento"`
+	ProtocoloProcedimentoFormatado string `json:"ProtocoloProcedimentoFormatado"`
+	NomeTipoProcedimento           string `json:"NomeTipoProcedimento"`
+}
+
+// ConsultarProcessoProtocoloFormatado Retorna o Processo pelo Protocolo Formatado.
+func (c Client) ConsultarProcessoProtocoloFormatado(ctx context.Context, protocoloFormatado string) (*ConsultaProcesso, error) {
+	if strings.TrimSpace(protocoloFormatado) == "" {
+		return nil, fmt.Errorf("invalid protocoloFormatado: %s", protocoloFormatado)
+	}
+
+	url := fmt.Sprintf("%s/processo/consultar?%s", c.endpoint, protocoloFormatado)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[ConsultaProcesso]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	return &result.Data, nil
 }

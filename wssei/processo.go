@@ -1174,21 +1174,21 @@ func (c Client) ListarCredenciamentoProcesso(ctx context.Context, params ListaCr
 }
 
 // ConsultarAtribuicaoProcesso Retorna os dados da Atribuição do Processo.
-func (c Client) ConsultarAtribuicaoProcesso(ctx context.Context, protocolo int) (*ProcessoUsuarioAtribuido, int, error) {
+func (c Client) ConsultarAtribuicaoProcesso(ctx context.Context, protocolo int) (*ProcessoUsuarioAtribuido, error) {
 	if protocolo == 0 {
-		return nil, 0, fmt.Errorf("invalid protocolo: %d", protocolo)
+		return nil, fmt.Errorf("invalid protocolo: %d", protocolo)
 	}
 
 	url := fmt.Sprintf("%s/processo/%d/consultar/atribuicao", c.endpoint, protocolo)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, 0, fmt.Errorf("request error: %w", err)
+		return nil, fmt.Errorf("request error: %w", err)
 	}
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("response error: %w", err)
+		return nil, fmt.Errorf("response error: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -1196,15 +1196,11 @@ func (c Client) ConsultarAtribuicaoProcesso(ctx context.Context, protocolo int) 
 
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
-		return nil, 0, fmt.Errorf("decode error: %w", err)
+		return nil, fmt.Errorf("decode error: %w", err)
 	}
 	if result.Sucesso != true {
-		return nil, 0, fmt.Errorf("consulta failed: %s", result.Mensagem)
+		return nil, fmt.Errorf("consulta failed: %s", result.Mensagem)
 	}
 
-	total, err := strconv.Atoi(result.Total)
-	if err != nil {
-		return nil, 0, fmt.Errorf("error: %w", err)
-	}
-	return result.Data, total, nil
+	return result.Data, nil
 }

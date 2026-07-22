@@ -1391,3 +1391,35 @@ func (c *Client) ConcederAcesso(ctx context.Context, params AcessoParams) (*Post
 
 	return &result.Data, nil
 }
+
+// RenunciarAcesso O Usuário Renuncia das credênciais de acesso ao Processo.
+func (c *Client) RenunciarAcesso(ctx context.Context, procedimento int) (*PostProcesso, error) {
+	if procedimento <= 0 {
+		return nil, fmt.Errorf("invalid Procedimento: %d", procedimento)
+	}
+
+	url := fmt.Sprintf("%s/processo/%d/credenciamento/renunciar", c.endpoint, procedimento)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}

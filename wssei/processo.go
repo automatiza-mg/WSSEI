@@ -2175,7 +2175,7 @@ type ConfiguracaoAcesso struct {
 	ObrigatoriedadeGrauSigilo    string               `json:"obrigatoriedadeGrauSigilo"`
 }
 
-// ListarUnidadesProcesso Retorna as Unidades do Processo.
+// ConsultarTipoTemplate Retorna os dados do Tipo de Template.
 func (c Client) ConsultarTipoTemplate(ctx context.Context, id int) (*ConfiguracaoAcesso, error) {
 	if id <= 0 {
 		return nil, fmt.Errorf("invalid id: %d", id)
@@ -2195,6 +2195,102 @@ func (c Client) ConsultarTipoTemplate(ctx context.Context, id int) (*Configuraca
 	defer resp.Body.Close()
 
 	var result Envelope[ConfiguracaoAcesso]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	return &result.Data, nil
+}
+
+// AssuntoProcesso representa um assunto vinculado ao processo.
+type AssuntoProcesso struct {
+	ID        string `json:"id"`
+	Codigo    string `json:"codigo"`
+	Descricao string `json:"descricao"`
+}
+
+// ObservacaoProcesso representa uma observação vinculada a uma unidade no processo.
+type ObservacaoProcesso struct {
+	Unidade    string `json:"unidade"`
+	Observacao string `json:"observacao"`
+}
+
+// DadosProcesso tipo utilizado para mapear os dados gerais de um processo, incluindo assuntos, interessados e observações.
+type DadosProcesso struct {
+	Especificacao string               `json:"especificacao"`
+	TipoProcesso  string               `json:"tipoProcesso"`
+	Assuntos      []AssuntoProcesso    `json:"assuntos"`
+	Interessados  []string             `json:"interessados"`
+	NivelAcesso   string               `json:"nivelAcesso"`
+	HipoteseLegal string               `json:"hipoteseLegal"`
+	GrauSigilo    string               `json:"grauSigilo"`
+	Observacoes   []ObservacaoProcesso `json:"observacoes"`
+}
+
+// DetalharProcesso Retorna os dados do Processo.
+func (c Client) DetalharProcesso(ctx context.Context, id int) (*DadosProcesso, error) {
+	if id <= 0 {
+		return nil, fmt.Errorf("invalid id: %d", id)
+	}
+
+	url := fmt.Sprintf("%s/processo/consultar/%d", c.endpoint, id)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[DadosProcesso]
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
+	if result.Sucesso != true {
+		return nil, fmt.Errorf("consulta failed: %s", result.Mensagem)
+	}
+
+	return &result.Data, nil
+}
+
+// ConsultaProcesso tipo utilizado na funcao ConsultarProcessoProtocoloFormatado.
+type ConsultaProcesso struct {
+	IDProcedimento                 string `json:"IdProcedimento"`
+	ProtocoloProcedimentoFormatado string `json:"ProtocoloProcedimentoFormatado"`
+	NomeTipoProcedimento           string `json:"NomeTipoProcedimento"`
+}
+
+// ConsultarProcessoProtocoloFormatado Retorna o Processo pelo Protocolo Formatado.
+func (c Client) ConsultarProcessoProtocoloFormatado(ctx context.Context, protocoloFormatado string) (*ConsultaProcesso, error) {
+	if strings.TrimSpace(protocoloFormatado) == "" {
+		return nil, fmt.Errorf("invalid protocoloFormatado: %s", protocoloFormatado)
+	}
+
+	url := fmt.Sprintf("%s/processo/consultar?%s", c.endpoint, protocoloFormatado)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result Envelope[ConsultaProcesso]
 
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {

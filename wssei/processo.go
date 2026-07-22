@@ -1564,3 +1564,93 @@ func (c *Client) ConcluirProcesso(ctx context.Context, params ConcluirProcessoPa
 
 	return &result.Data, nil
 }
+
+// ReceberProcessoParams tipo utilizado na funcao ReceberProcesso.
+type ReceberProcessoParams struct {
+	// Procedimento obrigatorio
+	Procedimento int
+}
+
+// ReceberProcesso Recebe um Processo de outra Unidade.
+func (c *Client) ReceberProcesso(ctx context.Context, params ReceberProcessoParams) (*PostProcesso, error) {
+	if params.Procedimento <= 0 {
+		return nil, fmt.Errorf("invalid procedimento: %d", params.Procedimento)
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/receber", c.endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// AcessoProcessoParams tipo utilizado na funcao AcessoProcesso.
+type AcessoProcessoParams struct {
+	// Todos obrigatorios
+	Protocolo int
+	Senha     string
+}
+
+// AcessoProcesso Realiza a verificação de acesso do Usuário ao Processo.
+func (c *Client) AcessoProcesso(ctx context.Context, params AcessoProcessoParams) (*PostProcesso, error) {
+	if params.Protocolo <= 0 {
+		return nil, fmt.Errorf("invalid procedimento: %d", params.Protocolo)
+	}
+	if strings.TrimSpace(params.Senha) == "" {
+		return nil, fmt.Errorf("invalid senha: %s", params.Senha)
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/identificar/acesso", c.endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}

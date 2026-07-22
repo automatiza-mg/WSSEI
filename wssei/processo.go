@@ -1842,3 +1842,34 @@ func (c *Client) AtribuirProcesso(ctx context.Context, params AtribuirProcessoPa
 
 	return &result.Data, nil
 }
+
+// RemoverAtribuicaoProcesso Remove a Atribuição de um Processo.
+func (c *Client) RemoverAtribuicaoProcesso(ctx context.Context, protocolo int) (*PostProcesso, error) {
+	if protocolo <= 0 {
+		return nil, fmt.Errorf("invalid protocolo: %d", protocolo)
+	}
+	url := fmt.Sprintf("%s/processo/%d/remover/atribuicao", c.endpoint, protocolo)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}

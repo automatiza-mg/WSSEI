@@ -1795,3 +1795,50 @@ func (c *Client) ReabrirProcesso(ctx context.Context, procedimento int, params R
 
 	return &result.Data, nil
 }
+
+// AtribuirProcessoParams tipo utilizado na funcao AtribuirProcesso.
+type AtribuirProcessoParams struct {
+	// Todos obrigatorios
+	NumeroProcesso string
+	Usuario        int
+}
+
+// AtribuirProcesso Atribui um Processo a um Usuário.
+func (c *Client) AtribuirProcesso(ctx context.Context, params AtribuirProcessoParams) (*PostProcesso, error) {
+	if strings.TrimSpace(params.NumeroProcesso) == "" {
+		return nil, fmt.Errorf("invalid NumeroProcesso: %s", params.NumeroProcesso)
+	}
+	if params.Usuario <= 0 {
+		return nil, fmt.Errorf("invalid procedimento: %d", params.Usuario)
+	}
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/processo/atribuir", c.endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("response error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result Envelope[PostProcesso]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response error: %w", err)
+	}
+
+	return &result.Data, nil
+}

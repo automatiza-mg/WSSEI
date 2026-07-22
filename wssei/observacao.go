@@ -21,7 +21,7 @@ type CadastrarObservacaoParams struct {
 // CadastrarObservacao cadastra uma observação no WSSEI.
 func (c *Client) CadastrarObservacao(ctx context.Context, params CadastrarObservacaoParams) error {
 	if strings.TrimSpace(params.Descricao) == "" {
-		return fmt.Errorf("descricao required: %d", params.Descricao)
+		return fmt.Errorf("descricao required: %s", params.Descricao)
 	}
 	if params.Unidade <= 0 {
 		return fmt.Errorf("unidade invalida: %d", params.Unidade)

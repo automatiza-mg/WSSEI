@@ -1341,7 +1341,7 @@ func (c *Client) SobrestarProcesso(ctx context.Context, params SobrestoParams) (
 	return &result.Data, nil
 }
 
-// SobrestoParams tipo utilizado na funcao SobrestarProcesso.
+// AcessoParams tipo utilizado na funcao ConcederAcesso.
 type AcessoParams struct {
 	// Todos sao obrigatorios
 	Procedimento int
@@ -1349,7 +1349,7 @@ type AcessoParams struct {
 	Usuario      int
 }
 
-// SobrestarProcesso Realiza o Sobrestamento do Processo.
+// ConcederAcesso Concede Acesso a um Usuário no Processo.
 func (c *Client) ConcederAcesso(ctx context.Context, params AcessoParams) (*PostProcesso, error) {
 	if params.Procedimento <= 0 {
 		return nil, fmt.Errorf("invalid Procedimento: %d", params.Procedimento)

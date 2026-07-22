@@ -2028,7 +2028,7 @@ func (c *Client) AlterarProcesso(ctx context.Context, protocolo int, params Alte
 	return &result.Data, nil
 }
 
-// AlterarProcessoParams tipo utilizado na funcao AgendarRetornoProgramado.
+// AgendarRetornoProgramadoParams tipo utilizado na funcao AgendarRetornoProgramado.
 type AgendarRetornoProgramadoParams struct {
 	// Todos obrigatórios
 	AtividadeEnvio int

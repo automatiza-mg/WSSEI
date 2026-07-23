@@ -11,18 +11,18 @@ import (
 	"strings"
 )
 
-// PesquisarTipoDocumentoExternoResult representa os dados retornados na
+// TipoDocumentoExterno representa os dados retornados na
 // pesquisa de tipos de documento externo.
-type PesquisarTipoDocumentoExternoResult struct {
+type TipoDocumentoExterno struct {
 	ID   string `json:"id"`
 	Nome string `json:"nome"`
 }
 
-// PesquisarTipoDocumentoExternoParams reúne os parâmetros opcionais da
+// TipoDocumentoExternoParams reúne os parâmetros opcionais da
 // pesquisa de tipos de documento externo.
 //
 // Campos com valor zero (0 ou "") são omitidos da requisição.
-type PesquisarTipoDocumentoExternoParams struct {
+type TipoDocumentoExternoParams struct {
 	// Limit é o limite de registros da paginação.
 	Limit int
 	// Start é a página de início da paginação.
@@ -35,7 +35,7 @@ type PesquisarTipoDocumentoExternoParams struct {
 
 // values converte os parâmetros da pesquisa em query params,
 // omitindo campos que possuem valor zero.
-func (p PesquisarTipoDocumentoExternoParams) values() url.Values {
+func (p TipoDocumentoExternoParams) values() url.Values {
 	q := make(url.Values)
 	if p.Limit != 0 {
 		q.Set("limit", strconv.Itoa(p.Limit))
@@ -54,7 +54,7 @@ func (p PesquisarTipoDocumentoExternoParams) values() url.Values {
 
 // PesquisarTipoDocumentoExterno retorna os tipos de documento externo
 // cadastrados e o total de registros.
-func (c *Client) PesquisarTipoDocumentoExterno(ctx context.Context, params PesquisarTipoDocumentoExternoParams) ([]PesquisarTipoDocumentoExternoResult, int, error) {
+func (c *Client) PesquisarTipoDocumentoExterno(ctx context.Context, params TipoDocumentoExternoParams) ([]TipoDocumentoExterno, int, error) {
 	endpoint := c.endpoint + "/serie/externo/pesquisar"
 	if q := params.values().Encode(); q != "" {
 		endpoint += "?" + q
@@ -81,7 +81,7 @@ func (c *Client) PesquisarTipoDocumentoExterno(ctx context.Context, params Pesqu
 		return nil, 0, fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	var env Envelope[[]PesquisarTipoDocumentoExternoResult]
+	var env Envelope[[]TipoDocumentoExterno]
 	if err := json.Unmarshal(body, &env); err != nil {
 		return nil, 0, fmt.Errorf("json unmarshal: %w", err)
 	}
